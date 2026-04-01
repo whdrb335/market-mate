@@ -48,7 +48,10 @@ public class SecurityConfig {
                     mvc.pattern("/api/user/login"),
                     mvc.pattern("/api/user/signup"),
                     mvc.pattern("/swagger-ui/**"),
-                    mvc.pattern("/v3/api-docs/**")
+                    mvc.pattern("/swagger-ui/index.html"),
+                    mvc.pattern("/v3/api-docs/**"),
+                    mvc.pattern("/swagger-resources/**"),
+                    mvc.pattern("/webjars/**")
                 ).permitAll()
                 .requestMatchers(mvc.pattern("/api/admin/**"))
                     .hasRole("ADMIN")
