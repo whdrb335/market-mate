@@ -63,6 +63,18 @@ public class User {
         }
     }
 
+    public void changePasswd(String oldPasswd, String newPasswd,
+                          BCryptPasswordEncoder encoder) {
+        if (!encoder.matches(oldPasswd, this.loginPw)) {
+            throw new NotMatchPasswd("비밀번호가 맞지 않습니다", HttpStatus.BAD_REQUEST);
+        }
+        this.loginPw = encoder.encode(newPasswd);
+    }
+
+    public void delete(){
+        this.status = UserStatus.DELETE;
+    }
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
