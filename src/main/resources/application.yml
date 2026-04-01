@@ -29,3 +29,8 @@ spring:
 logging:
   level:
     org.hibernate.SQL: debug
+
+weather:
+  api:
+    key: 73f1ce8328522e4eb97aab95d79cf90d
+    url: https://api.openweathermap.org/data/2.5

@@ -2,6 +2,8 @@ package com.example.market_mate.domain.recommendation.service;
 
 import com.example.market_mate.common.exception.product.NotFoundProductException;
 import com.example.market_mate.common.exception.user.NotFoundUserException;
+import com.example.market_mate.common.weather.WeatherInfo;
+import com.example.market_mate.common.weather.WeatherService;
 import com.example.market_mate.domain.product.entity.Product;
 import com.example.market_mate.domain.product.entity.ProductStatus;
 import com.example.market_mate.domain.product.repository.ProductRepository;
@@ -33,6 +35,8 @@ public class RecommendationService {
     private final StockRepository stockRepository;
     private final SalesRecordRepository salesRecordRepository;
     private final UserRepository userRepository;
+    private final WeatherService weatherService;
+
 
     /**
      * 내일 발주 추천 생성
@@ -76,8 +80,10 @@ public class RecommendationService {
                         .orElse(0);
 
         // 2. 날씨 배수 (추후 API 연동, 현재 기본값)
-        Weather expectedWeather = Weather.SUNNY;
-        double weatherMultiplier = 1.0;
+        // 2. 날씨 API 연동
+        WeatherInfo weatherInfo = weatherService.getCurrentWeather();
+        Weather expectedWeather = weatherInfo.getWeather();
+        double weatherMultiplier = getWeatherMultiplier(expectedWeather, product.getName());
 
         // 3. 계절 배수
         Season season = getSeason(date.getMonth());
@@ -118,5 +124,20 @@ public class RecommendationService {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundUserException(
                         "존재하지 않는 유저입니다.", HttpStatus.NOT_FOUND));
+    }
+
+    private double getWeatherMultiplier(Weather weather, String productName) {
+        if (weather == Weather.RAINY) {
+            // 비 오면 정구지(부추)는 증가 (찌짐 때문에)
+            if (productName.contains("정구지") || productName.contains("부추")) {
+                return 1.3;
+            }
+            // 나머지는 30% 감소
+            return 0.7;
+        }
+        if (weather == Weather.SNOW) {
+            return 0.5; // 눈 오면 50% 감소
+        }
+        return 1.0; // 맑음/흐림은 기본값
     }
 }
