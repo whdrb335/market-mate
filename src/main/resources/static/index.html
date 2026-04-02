@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MarketMate - 메인</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Apple SD Gothic Neo', sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .header {
+            background: #2d6a4f;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { color: white; font-size: 20px; }
+        .header button {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .container { padding: 20px; max-width: 600px; margin: 0 auto; }
+        .date-info {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .date-info h2 { font-size: 18px; color: #333; }
+        .date-info p { color: #888; font-size: 14px; margin-top: 4px; }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .card h3 {
+            font-size: 16px;
+            color: #2d6a4f;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+        .item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 16px;
+        }
+        .item:last-child { border-bottom: none; }
+        .item .name { color: #333; font-weight: 600; }
+        .item .value { color: #2d6a4f; font-weight: 700; }
+        .item .stock-low { color: #e63946; }
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        .btn {
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+        }
+        .btn-primary { background: #2d6a4f; color: white; }
+        .btn-secondary { background: #e8f5e9; color: #2d6a4f; }
+        .empty { color: #aaa; text-align: center; padding: 20px; font-size: 14px; }
+        .market-day-badge {
+            display: inline-block;
+            background: #ff6b35;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-left: 8px;
+        }
+        .weather-box {
+            text-align: center;
+        }
+        .weather-icon { font-size: 40px; }
+        .weather-temp { font-size: 20px; color: #333; font-weight: 700; margin-top: 4px; }
+        .weather-desc { font-size: 12px; color: #888; margin-top: 2px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌿 MarketMate</h1>
+        <button onclick="logout()">로그아웃</button>
+    </div>
+
+    <div class="container">
+        <!-- 날짜/날씨 -->
+        <div class="date-info">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h2 id="todayDate"></h2>
+                    <p id="todayInfo"></p>
+                </div>
+                <div class="weather-box">
+                    <div class="weather-icon" id="weatherIcon">⏳</div>
+                    <div class="weather-temp" id="weatherTemp"></div>
+                    <div class="weather-desc" id="weatherDesc"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 내일 발주 추천 -->
+        <div class="card">
+            <h3>📦 내일 발주 추천</h3>
+            <div id="recommendationList">
+                <p class="empty">불러오는 중...</p>
+            </div>
+        </div>
+
+        <!-- 현재 재고 -->
+        <div class="card">
+            <h3>🏪 현재 재고</h3>
+            <div id="stockList">
+                <p class="empty">불러오는 중...</p>
+            </div>
+        </div>
+        <!-- 재고 추가 모달 -->
+        <div id="stockModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100;">
+            <div style="background:white; border-radius:16px; padding:24px; margin:20% auto; max-width:320px; width:90%;">
+                <h3 style="color:#2d6a4f; margin-bottom:16px;" id="modalTitle">재고 추가</h3>
+                <input type="number" id="stockQty" placeholder="수량 입력"
+                    style="width:100%; padding:14px; border:2px solid #e0e0e0; border-radius:10px; font-size:16px; outline:none; margin-bottom:16px;" />
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <button onclick="closeModal()"
+                        style="padding:14px; background:#f0f0f0; border:none; border-radius:10px; font-size:16px; font-weight:700; cursor:pointer;">
+                        취소
+                    </button>
+                    <button onclick="submitStock()"
+                        style="padding:14px; background:#2d6a4f; color:white; border:none; border-radius:10px; font-size:16px; font-weight:700; cursor:pointer;">
+                        추가
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- 버튼 -->
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="location.href='sales.html'">
+                📝 판매 기록 입력
+            </button>
+            <button class="btn btn-secondary" onclick="location.href='products.html'">
+                🌿 품목 관리
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://localhost:8081';
+        const token = localStorage.getItem('accessToken');
+
+        if (!token) window.location.href = 'login.html';
+
+        const days = ['일', '월', '화', '수', '목', '금', '토'];
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const isMarketDay = tomorrow.getDay() === 4;
+
+        document.getElementById('todayDate').innerHTML =
+            `${today.getFullYear()}년 ${today.getMonth()+1}월 ${today.getDate()}일 (${days[today.getDay()]})` +
+            (today.getDay() === 4 ? '<span class="market-day-badge">장날</span>' : '');
+
+        document.getElementById('todayInfo').innerText =
+            `내일: ${tomorrow.getMonth()+1}월 ${tomorrow.getDate()}일 (${days[tomorrow.getDay()]})` +
+            (isMarketDay ? ' 🔥 장날!' : '');
+
+        // 날씨 조회
+        async function loadWeather() {
+            try {
+                const API_KEY = '73f1ce8328522e4eb97aab95d79cf90d';
+                const res = await fetch(
+                    `https://api.openweathermap.org/data/2.5/weather?q=Seoul&appid=${API_KEY}&units=metric&lang=kr`
+                );
+                const data = await res.json();
+
+                const temp = Math.round(data.main.temp);
+                const weatherMain = data.weather[0].main;
+                const desc = data.weather[0].description;
+
+                const iconMap = {
+                    'Clear': '☀️',
+                    'Clouds': '☁️',
+                    'Rain': '🌧️',
+                    'Drizzle': '🌦️',
+                    'Thunderstorm': '⛈️',
+                    'Snow': '❄️',
+                    'Mist': '🌫️',
+                    'Fog': '🌫️'
+                };
+
+                document.getElementById('weatherIcon').innerText = iconMap[weatherMain] || '🌤️';
+                document.getElementById('weatherTemp').innerText = `${temp}°C`;
+                document.getElementById('weatherDesc').innerText = desc;
+            } catch (e) {
+                document.getElementById('weatherIcon').innerText = '🌤️';
+                document.getElementById('weatherDesc').innerText = '날씨 불러오기 실패';
+            }
+        }
+
+        // 발주 추천 생성 및 조회
+        async function loadRecommendations() {
+            try {
+            const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+            // 먼저 조회해보고 없을 때만 생성
+            const checkRes = await fetch(`${API}/api/recommendation?date=${tomorrowStr}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const checkData = await checkRes.json();
+
+            // 데이터 없을 때만 생성
+            if (!checkData.data || checkData.data.length === 0) {
+                await fetch(`${API}/api/recommendation/generate`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+            }
+
+            // 다시 조회
+            const res = await fetch(`${API}/api/recommendation?date=${tomorrowStr}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+
+            const list = document.getElementById('recommendationList');
+            if (!data.data || data.data.length === 0) {
+                list.innerHTML = '<p class="empty">품목을 먼저 등록해주세요</p>';
+                return;
+            }
+
+            list.innerHTML = data.data.map(rec => `
+                <div class="item">
+                    <span class="name">${rec.productName} (${rec.unit})</span>
+                    <span class="value">
+                        ${rec.recommendQuantity > 0
+                            ? rec.recommendQuantity + rec.unit + ' 발주 필요'
+                            : '✅ 충분'}
+                    </span>
+                </div>
+            `).join('');
+        } catch (e) {
+            document.getElementById('recommendationList').innerHTML =
+                '<p class="empty">불러오기 실패</p>';
+        }
+        }
+
+        // 재고 조회
+        async function loadStocks() {
+            try {
+                const res = await fetch(`${API}/api/stock`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                const list = document.getElementById('stockList');
+                if (!data.data || data.data.length === 0) {
+                    list.innerHTML = '<p class="empty">품목을 먼저 등록해주세요</p>';
+                    return;
+                }
+
+                list.innerHTML = data.data.map(stock => `
+                    <div class="item">
+                        <span class="name">${stock.productName}</span>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="value ${stock.quantity < 10 ? 'stock-low' : ''}">
+                                ${stock.quantity}${stock.unit}
+                                ${stock.quantity < 10 ? ' ⚠️' : ''}
+                            </span>
+                            <button onclick="openModal(${stock.productId}, '${stock.productName}')"
+                                style="background:#e8f5e9; color:#2d6a4f; border:none; padding:6px 12px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;">
+                                + 추가
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById('stockList').innerHTML =
+                    '<p class="empty">불러오기 실패</p>';
+            }
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+
+        let selectedProductId = null;
+
+        function openModal(productId, productName) {
+            selectedProductId = productId;
+            document.getElementById('modalTitle').innerText = `${productName} 재고 추가`;
+            document.getElementById('stockQty').value = '';
+            document.getElementById('stockModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('stockModal').style.display = 'none';
+            selectedProductId = null;
+        }
+
+        async function submitStock() {
+            const qty = document.getElementById('stockQty').value;
+            if (!qty || qty <= 0) {
+                alert('수량을 입력해주세요');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API}/api/stock/${selectedProductId}/add`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ quantity: parseInt(qty) })
+                });
+
+                if (!res.ok) throw new Error('실패');
+
+                closeModal();
+                loadStocks();
+            } catch (e) {
+                alert('재고 추가에 실패했습니다');
+            }
+        }
+
+
+
+        loadWeather();
+        loadRecommendations();
+        loadStocks();
+    </script>
+</body>
+</html>

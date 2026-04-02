@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MarketMate - 판매 기록</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Apple SD Gothic Neo', sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .header {
+            background: #2d6a4f;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { color: white; font-size: 20px; }
+        .header button {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .container { padding: 20px; max-width: 600px; margin: 0 auto; }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .card h3 {
+            font-size: 16px;
+            color: #2d6a4f;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+        .form-group { margin-bottom: 16px; }
+        label {
+            display: block;
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+        select, input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+            background: white;
+        }
+        select:focus, input:focus { border-color: #2d6a4f; }
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .btn-primary { background: #2d6a4f; color: white; }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #555;
+            margin-top: 10px;
+        }
+        .success {
+            background: #e8f5e9;
+            color: #2d6a4f;
+            padding: 14px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 700;
+            margin-top: 10px;
+            display: none;
+        }
+        .error {
+            background: #fdecea;
+            color: #e63946;
+            padding: 14px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 700;
+            margin-top: 10px;
+            display: none;
+        }
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 15px;
+        }
+        .history-item:last-child { border-bottom: none; }
+        .history-name { color: #333; font-weight: 600; }
+        .history-qty { color: #2d6a4f; font-weight: 700; }
+        .history-date { color: #aaa; font-size: 12px; }
+        .empty { color: #aaa; text-align: center; padding: 20px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📝 판매 기록 입력</h1>
+        <button onclick="location.href='index.html'">← 홈</button>
+    </div>
+
+    <div class="container">
+        <!-- 판매 기록 입력 폼 -->
+        <div class="card">
+            <h3>오늘 판매 기록</h3>
+            <div class="form-group">
+                <label>품목 선택</label>
+                <select id="productId">
+                    <option value="">품목을 선택하세요</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>판매량</label>
+                <input type="number" id="quantity" placeholder="판매량 입력" min="1" />
+            </div>
+            <div class="form-group">
+                <label>판매일</label>
+                <input type="date" id="salesDate" />
+            </div>
+            <div class="form-group">
+                <label>특별일 여부</label>
+                <select id="specialDay">
+                    <option value="NONE">일반</option>
+                    <option value="SEOLLAL">설날</option>
+                    <option value="CHUSEOK">추석</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="submitSales()">판매 기록 저장</button>
+            <button class="btn btn-secondary" onclick="location.href='index.html'">취소</button>
+            <div class="success" id="successMsg">✅ 판매 기록이 저장되었습니다!</div>
+            <div class="error" id="errorMsg">❌ 저장에 실패했습니다</div>
+        </div>
+
+        <!-- 오늘 판매 기록 목록 -->
+        <div class="card">
+            <h3>오늘 판매 내역</h3>
+            <div id="todaySalesList">
+                <p class="empty">불러오는 중...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://localhost:8081';
+        const token = localStorage.getItem('accessToken');
+        if (!token) window.location.href = 'login.html';
+
+        // 오늘 날짜 기본값 설정
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('salesDate').value = today;
+
+        // 품목 목록 불러오기
+        async function loadProducts() {
+            try {
+                const res = await fetch(`${API}/api/product`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const select = document.getElementById('productId');
+
+                if (!data.data || data.data.length === 0) {
+                    select.innerHTML = '<option value="">등록된 품목이 없습니다</option>';
+                    return;
+                }
+
+                select.innerHTML = '<option value="">품목을 선택하세요</option>' +
+                    data.data.map(p =>
+                        `<option value="${p.id}">${p.name} (${p.unit})</option>`
+                    ).join('');
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // 오늘 판매 기록 불러오기
+        async function loadTodaySales() {
+            try {
+                const res = await fetch(
+                    `${API}/api/sales?start=${today}&end=${today}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const list = document.getElementById('todaySalesList');
+
+                if (!data.data || data.data.length === 0) {
+                    list.innerHTML = '<p class="empty">오늘 판매 기록이 없습니다</p>';
+                    return;
+                }
+
+                list.innerHTML = data.data.map(s => `
+                    <div class="history-item">
+                        <div>
+                            <div class="history-name">${s.productName}</div>
+                            <div class="history-date">${s.weather} · ${s.season}</div>
+                        </div>
+                        <div class="history-qty">${s.quantity}${getUnit(s)}</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById('todaySalesList').innerHTML =
+                    '<p class="empty">불러오기 실패</p>';
+            }
+        }
+
+        function getUnit(sale) {
+            return '';
+        }
+
+        // 판매 기록 저장
+        async function submitSales() {
+            const productId = document.getElementById('productId').value;
+            const quantity = document.getElementById('quantity').value;
+            const salesDate = document.getElementById('salesDate').value;
+            const specialDay = document.getElementById('specialDay').value;
+
+            if (!productId || !quantity || !salesDate) {
+                document.getElementById('errorMsg').innerText = '모든 항목을 입력해주세요';
+                document.getElementById('errorMsg').style.display = 'block';
+                setTimeout(() => document.getElementById('errorMsg').style.display = 'none', 3000);
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API}/api/sales`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        productId: parseInt(productId),
+                        quantity: parseInt(quantity),
+                        salesDate,
+                        specialDay
+                    })
+                });
+
+                if (!res.ok) throw new Error('저장 실패');
+
+                document.getElementById('successMsg').style.display = 'block';
+                document.getElementById('quantity').value = '';
+                document.getElementById('productId').value = '';
+                setTimeout(() => document.getElementById('successMsg').style.display = 'none', 3000);
+
+                loadTodaySales();
+            } catch (e) {
+                document.getElementById('errorMsg').innerText = '재고가 부족하거나 저장에 실패했습니다';
+                document.getElementById('errorMsg').style.display = 'block';
+                setTimeout(() => document.getElementById('errorMsg').style.display = 'none', 3000);
+            }
+        }
+
+        loadProducts();
+        loadTodaySales();
+    </script>
+</body>
+</html>

@@ -24,6 +24,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional(readOnly = true)
@@ -36,7 +37,6 @@ public class RecommendationService {
     private final SalesRecordRepository salesRecordRepository;
     private final UserRepository userRepository;
     private final WeatherService weatherService;
-
 
     /**
      * 내일 발주 추천 생성
@@ -65,6 +65,18 @@ public class RecommendationService {
     private OrderRecommendation generateRecommendation(
             User user, Product product, LocalDate date) {
 
+        // ⭐ 이미 해당 날짜에 해당 품목 추천이 있으면 기존 거 반환
+        List<OrderRecommendation> existing =
+                recommendationRepository.findByUserIdAndRecommendDate(user.getId(), date);
+
+        Optional<OrderRecommendation> alreadyExists = existing.stream()
+                .filter(r -> r.getProduct().getId().equals(product.getId()))
+                .findFirst();
+
+        if (alreadyExists.isPresent()) {
+            return alreadyExists.get();
+        }
+
         // 1. 최근 30일 평균 판매량 계산
         LocalDate thirtyDaysAgo = date.minusDays(30);
         List<SalesRecord> recentSales = salesRecordRepository
@@ -73,13 +85,12 @@ public class RecommendationService {
                 .filter(r -> r.getSalesDate().isAfter(thirtyDaysAgo))
                 .toList();
 
-        int baseQuantity = recentSales.isEmpty() ? 0 :
+        int baseQuantity = recentSales.isEmpty() ? 10 :
                 (int) recentSales.stream()
                         .mapToInt(SalesRecord::getQuantity)
                         .average()
-                        .orElse(0);
+                        .orElse(10);
 
-        // 2. 날씨 배수 (추후 API 연동, 현재 기본값)
         // 2. 날씨 API 연동
         WeatherInfo weatherInfo = weatherService.getCurrentWeather();
         Weather expectedWeather = weatherInfo.getWeather();
@@ -87,7 +98,7 @@ public class RecommendationService {
 
         // 3. 계절 배수
         Season season = getSeason(date.getMonth());
-        double seasonMultiplier = 1.0; // 추후 품목별 계절 패턴 적용
+        double seasonMultiplier = 1.0;
 
         // 4. 요일/장날 배수
         boolean isMarketDay = date.getDayOfWeek() == DayOfWeek.THURSDAY;
@@ -128,16 +139,14 @@ public class RecommendationService {
 
     private double getWeatherMultiplier(Weather weather, String productName) {
         if (weather == Weather.RAINY) {
-            // 비 오면 정구지(부추)는 증가 (찌짐 때문에)
             if (productName.contains("정구지") || productName.contains("부추")) {
                 return 1.3;
             }
-            // 나머지는 30% 감소
             return 0.7;
         }
         if (weather == Weather.SNOW) {
-            return 0.5; // 눈 오면 50% 감소
+            return 0.5;
         }
-        return 1.0; // 맑음/흐림은 기본값
+        return 1.0;
     }
 }

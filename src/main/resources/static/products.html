@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MarketMate - 품목 관리</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Apple SD Gothic Neo', sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .header {
+            background: #2d6a4f;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { color: white; font-size: 20px; }
+        .header button {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .container { padding: 20px; max-width: 600px; margin: 0 auto; }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .card h3 {
+            font-size: 16px;
+            color: #2d6a4f;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+        .form-group { margin-bottom: 16px; }
+        label {
+            display: block;
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+        input, select {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+            background: white;
+        }
+        input:focus, select:focus { border-color: #2d6a4f; }
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .btn-primary { background: #2d6a4f; color: white; }
+        .success {
+            background: #e8f5e9;
+            color: #2d6a4f;
+            padding: 14px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 700;
+            margin-top: 10px;
+            display: none;
+        }
+        .error {
+            background: #fdecea;
+            color: #e63946;
+            padding: 14px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 700;
+            margin-top: 10px;
+            display: none;
+        }
+        .product-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .product-item:last-child { border-bottom: none; }
+        .product-name { font-size: 16px; font-weight: 700; color: #333; }
+        .product-info { font-size: 13px; color: #888; margin-top: 4px; }
+        .btn-delete {
+            background: #fdecea;
+            color: #e63946;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .empty { color: #aaa; text-align: center; padding: 20px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌿 품목 관리</h1>
+        <button onclick="location.href='index.html'">← 홈</button>
+    </div>
+
+    <div class="container">
+        <!-- 품목 등록 -->
+        <div class="card">
+            <h3>품목 등록</h3>
+            <div class="form-group">
+                <label>품목명</label>
+                <input type="text" id="name" placeholder="예) 감자, 양파, 정구지" />
+            </div>
+            <div class="row">
+                <div class="form-group">
+                    <label>단위</label>
+                    <select id="unit">
+                        <option value="kg">kg</option>
+                        <option value="개">개</option>
+                        <option value="단">단</option>
+                        <option value="봉">봉</option>
+                        <option value="박스">박스</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>매입가</label>
+                    <input type="number" id="purchasePrice" placeholder="원" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label>판매가</label>
+                <input type="number" id="sellingPrice" placeholder="원" />
+            </div>
+            <button class="btn btn-primary" onclick="addProduct()">품목 등록</button>
+            <div class="success" id="successMsg">✅ 품목이 등록되었습니다!</div>
+            <div class="error" id="errorMsg">❌ 등록에 실패했습니다</div>
+        </div>
+
+        <!-- 품목 목록 -->
+        <div class="card">
+            <h3>등록된 품목</h3>
+            <div id="productList">
+                <p class="empty">불러오는 중...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://localhost:8081';
+        const token = localStorage.getItem('accessToken');
+        if (!token) window.location.href = 'login.html';
+
+        // 품목 목록 불러오기
+        async function loadProducts() {
+            try {
+                const res = await fetch(`${API}/api/product`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const list = document.getElementById('productList');
+
+                if (!data.data || data.data.length === 0) {
+                    list.innerHTML = '<p class="empty">등록된 품목이 없습니다</p>';
+                    return;
+                }
+
+                list.innerHTML = data.data.map(p => `
+                    <div class="product-item">
+                        <div>
+                            <div class="product-name">${p.name}</div>
+                            <div class="product-info">
+                                단위: ${p.unit} · 매입가: ${p.purchasePrice.toLocaleString()}원 · 판매가: ${p.sellingPrice.toLocaleString()}원
+                            </div>
+                        </div>
+                        <button class="btn-delete" onclick="deleteProduct(${p.id})">삭제</button>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById('productList').innerHTML =
+                    '<p class="empty">불러오기 실패</p>';
+            }
+        }
+
+        // 품목 등록
+        async function addProduct() {
+            const name = document.getElementById('name').value;
+            const unit = document.getElementById('unit').value;
+            const purchasePrice = document.getElementById('purchasePrice').value;
+            const sellingPrice = document.getElementById('sellingPrice').value;
+
+            if (!name || !purchasePrice || !sellingPrice) {
+                document.getElementById('errorMsg').innerText = '모든 항목을 입력해주세요';
+                document.getElementById('errorMsg').style.display = 'block';
+                setTimeout(() => document.getElementById('errorMsg').style.display = 'none', 3000);
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API}/api/product`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name,
+                        unit,
+                        purchasePrice: parseInt(purchasePrice),
+                        sellingPrice: parseInt(sellingPrice)
+                    })
+                });
+
+                if (!res.ok) throw new Error('등록 실패');
+
+                document.getElementById('successMsg').style.display = 'block';
+                document.getElementById('name').value = '';
+                document.getElementById('purchasePrice').value = '';
+                document.getElementById('sellingPrice').value = '';
+                setTimeout(() => document.getElementById('successMsg').style.display = 'none', 3000);
+
+                loadProducts();
+            } catch (e) {
+                document.getElementById('errorMsg').style.display = 'block';
+                setTimeout(() => document.getElementById('errorMsg').style.display = 'none', 3000);
+            }
+        }
+
+        // 품목 삭제
+        async function deleteProduct(productId) {
+            if (!confirm('정말 삭제하시겠습니까?')) return;
+
+            try {
+                const res = await fetch(`${API}/api/product/${productId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!res.ok) throw new Error('삭제 실패');
+                loadProducts();
+            } catch (e) {
+                alert('삭제에 실패했습니다');
+            }
+        }
+
+        loadProducts();
+    </script>
+</body>
+</html>
